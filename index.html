@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFiPulse Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/licid@latest"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none;}
+        .no-scrollbar:: { -ms-overflow-style: none; scrollbar-width: none;}
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans antialised min-h-screen flex flex-col">
+    <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7*l mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+       <div class="flex items-center space-x-3">
+        <div class="p-2 bg-indigo-600 rounded-lg text-white">
+            <i data-lucide="wifi" class="w-6 h-6"></i>
+        </div>
+        <div>
+            <h1 class="font-bold text-lg leading-tight text-white">WiFipulse</h1>
+            <p class="text-xs text-slate-400">Vendor & Subscrition Portal</p>
+        </div>
+       </div> 
+       <div class="flex items-center space-x-3">
+        <button onclick="exportDataCSV()" class="flex items-center space-x-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg border border-slate-700 transition">
+            <i data-lucide="download" class="w-4 h-4 text-slag-400"></i>
+            <span>Export CSV</span>
+        </button>
+        <button onclick="openVoucherModel()" class="flex items-center space-x-2 text-xs bg-indigo-500 text-white front-medium px-4 py-2 rounded-lg shadow-indigo-600/30 transition">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>Issue Voucher</span>
+        </button>
+       </div>
+    </div>
+    </header>
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    
+    <!-- METRICS GRID -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <!-- Total Revenue -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 flex items-center space-x-4">
+        <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-lg">
+          <i data-lucide="banknote" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400 font-medium">Total Revenue</p>
+          <h3 class="text-2xl font-bold text-white mt-1" id="metric-revenue">KSh 0</h3>
+        </div>
+      </div>
+      <!-- Active Subscriptions -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 flex items-center space-x-4">
+        <div class="p-3 bg-indigo-500/10 text-indigo-400 rounded-lg">
+          <i data-lucide="radio" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400 font-medium">Active Live Sessions</p>
+          <h3 class="text-2xl font-bold text-white mt-1" id="metric-active">0</h3>
+        </div>
+      </div>
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 flex items-center space-x-4">
+        <div class="p-3 bg-rose-500/10 text-rose-400 rounded-lg">
+            <i data-lucide="clock-3" class="w-6 h-6"></i>
+        </div>
+        <div>
+            <p class="text-xs text-slate-400 font-medium">Expired Pass Total</p>
+            <h3 class="text-2xl font-bold text-white mt-1" id="metric-expired">0</h3>
+        </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <!-- LEFT 2 COLUMNS: VOUCHER & CUSTOMER TABBED MANAGEMENT -->
+      <div class="lg:col-span-2 space-y-6">
+        
+        <!-- TABS & ACTIONS HEADER -->
+        <div class="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div class="flex border-b border-slate-700/80 space-x-6">
+              <button onclick="switchTab('active')" id="tab-btn-active" class="pb-3 text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition">
+                Active Passes (<span id="count-active-tab">0</span>)
+              </button>
+              <button onclick="switchTab('customers')" id="tab-btn-customers" class="pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+                Customer Records (<span id="count-customers-tab">0</span>)
+              </button>
+              <button onclick="switchTab('all-vouchers')" id="tab-btn-all-vouchers" class="pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+                All Vouchers Log
+              </button>
+            </div>
+            
+            <!-- SEARCH BAR -->
+            <div class="relative w-full sm:w-64">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+              <input type="text" id="table-search" oninput="renderCurrentTab()" placeholder="Search phone, voucher, plan..." class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:border-indigo-500">
+            </div>
+          </div>
+
+          <!-- TAB 1: ACTIVE SESSIONS TABLE -->
+          <div id="tab-active" class="tab-content overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900/60 text-slate-400 font-semibold border-b border-slate-700/80">
+                <tr>
+                  <th class="py-3 px-4">Voucher Code</th>
+                  <th class="py-3 px-4">Customer Phone</th>
+                  <th class="py-3 px-4">Plan Name</th>
+                  <th class="py-3 px-4">Time Remaining</th>
+                  <th class="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="active-vouchers-list" class="divide-y divide-slate-700/40 text-slate-300">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+          <div id="tab-customers" class="tab-content hidden overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900/60 text-slate-400 font-semibold border-b border-slate-700/80">
+                <tr>
+                  <th class="py-3 px-4">Phone Number</th>
+                  <th class="py-3 px-4">Customer Name</th>
+                  <th class="py-3 px-4">Total Purchases</th>
+                  <th class="py-3 px-4">Lifetime Spend</th>
+                  <th class="py-3 px-4 text-right">Quick Issue</th>
+                </tr>
+              </thead>
+              <tbody id="customers-list" class="divide-y divide-slate-700/40 text-slate-300">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- TAB 3: ALL VOUCHERS LOG -->
+          <div id="tab-all-vouchers" class="tab-content hidden overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900/60 text-slate-400 font-semibold border-b border-slate-700/80">
+                <tr>
+                  <th class="py-3 px-4">Voucher Code</th>
+                  <th class="py-3 px-4">Phone</th>
+                  <th class="py-3 px-4">Plan</th>
+                  <th class="py-3 px-4">Price</th>
+                  <th class="py-3 px-4">Status</th>
+                </tr>
+              </thead>
+              <tbody id="all-vouchers-list" class="divide-y divide-slate-700/40 text-slate-300">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RATE PLANS CONFIGURATOR PANEL -->
+        <div class="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-bold text-white text-base">Configured Subscription Plans</h3>
+              <p class="text-xs text-slate-400">Available WiFi packages for purchase or voucher issuance</p>
+            </div>
+            <button onclick="openPlanModal()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-lg transition border border-slate-600">
+              + New Plan
+            </button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="plans-container">
+            <!-- Plans dynamic render -->
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: CAPTIVE PORTAL SIMULATOR -->
+      <div class="lg:col-span-1">
+        <div class="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-6 sticky top-24">
+          <div class="flex items-center space-x-2 mb-4">
+            <i data-lucide="smartphone" class="w-5 h-5 text-indigo-400"></i>
+            <h3 class="font-bold text-white text-base">Hotspot Portal Simulator</h3>
+          </div>
+          <p class="text-xs text-slate-400 mb-6">Test voucher code redemption directly from the customer's perspective.</p>
+
+          <!-- SIMULATED MOBILE SCREEN -->
+          <div class="bg-slate-950 border-4 border-slate-800 rounded-3xl p-5 shadow-2xl relative">
+            <div class="w-20 h-4 bg-slate-800 rounded-full mx-auto mb-6"></div>
+            
+            <!-- SIMULATED PORTAL INTERFACE -->
+            <div class="text-center space-y-4">
+              <div class="w-12 h-12 bg-indigo-600/20 text-indigo-400 rounded-full flex items-center justify-center mx-auto">
+                <i data-lucide="wifi" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Vendor Hotspot Login</h4>
+                <p class="text-[10px] text-slate-400">Enter your purchased voucher code to access internet</p>
+              </div>
+
+              <div class="space-y-3 pt-2">
+                <input type="text" id="sim-voucher-input" placeholder="e.g. WF8K2P9A" class="w-full bg-slate-900 border border-slate-700 text-white text-center tracking-widest font-mono uppercase text-sm rounded-lg py-2.5 focus:outline-none focus:border-indigo-500">
+                <button onclick="simulatePortalLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2.5 rounded-lg transition shadow-md shadow-indigo-600/30">
+                  Connect Hotspot
+                </button>
+              </div>
+
+              <!-- SIMULATED PORTAL RESPONSE MESSAGE -->
+              <div id="sim-response" class="hidden text-xs p-3 rounded-lg text-left"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL: ISSUE NEW VOUCHER -->
+  <div id="modal-voucher" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+      <button onclick="closeVoucherModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+      <h3 class="text-lg font-bold text-white mb-1">Issue Hotspot Voucher</h3>
+      <p class="text-xs text-slate-400 mb-4">Link customer details to issue an internet subscription pass.</p>
+
+      <form id="form-voucher" onsubmit="handleIssueVoucher(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Customer Phone Number</label>
+          <input type="tel" id="voucher-phone" required placeholder="0712345678" class="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Customer Name (Optional)</label>
+          <input type="text" id="voucher-name" placeholder="John Doe" class="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Select Subscription Plan</label>
+          <select id="voucher-plan" required class="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+        <div class="pt-2 flex justify-end space-x-3">
+          <button type="button" onclick="closeVoucherModal()" class="text-xs bg-slate-700 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-600">Cancel</button>
+          <button type="submit" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-lg shadow-md shadow-indigo-600/30">Issue & Print Voucher</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD NEW RATE PLAN -->
+  <div id="modal-plan" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+      <button onclick="closePlanModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+      <h3 class="text-lg font-bold text-white mb-1">Create WiFi Subscription Plan</h3>
+      <p class="text-xs text-slate-400 mb-4">Set pricing, duration limits, and network bandwidth speeds.</p>
+
+      <form id="form-plan" onsubmit="handleCreatePlan(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Plan Display Name</label>
+          <input type="text" id="plan-name" required placeholder="e.g. 1 Hour Express Pass" class="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Price (KSh)</label>
+            <input type="number" id="plan-price" required min="1" placeholder="50" class="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Duration (Minutes)</label>
+            <input type="number" id="plan-duration" required min="1" placeholder="60" class="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Download Speed (Mbps)</label>
+            <input type="number" id="plan-down" required min="1" placeholder="5" class="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Upload Speed (Mbps)</label>
+            <input type="number" id="plan-up" required min="1" placeholder="2" class="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+        <div class="pt-2 flex justify-end space-x-3">
+          <button type="button" onclick="closePlanModal()" class="text-xs bg-slate-700 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-600">Cancel</button>
+          <button type="submit" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-lg shadow-md shadow-indigo-600/30">Save Plan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APPLICATION LOGIC JS -->
+  <script>
+    // INITIAL MOCK DATA SEEDS
+    const DEFAULT_PLANS = [
+      { id: 'plan-1', name: '30 Mins Quick Pass', durationMins: 30, price: 20, speedDown: 3, speedUp: 1 },
+      { id: 'plan-2', name: '24 Hour Unlimited Pass', durationMins: 1440, price: 100, speedDown: 8, speedUp: 3 },
+      { id: 'plan-3', name: 'Monthly Unlimited Pro', durationMins: 43200, price: 1500, speedDown: 15, speedUp: 5 }
+    ];
+
+    const DEFAULT_CUSTOMERS = [
+      { phone: '0716473104', name: 'James Kariuki', createdAt: new Date(Date.now() - 86400000 * 5).toISOString() },
+      { phone: '0725574237', name: 'Mary Wanjiku', createdAt: new Date(Date.now() - 86400000 * 2).toISOString() }
+    ];
+
+    const DEFAULT_VOUCHERS = [
+      {
+        code: 'WF9K2P8A',
+        phone: '0716473104',
+        planId: 'plan-2',
+        planName: '24 Hour Unlimited Pass',
+        price: 250,
+        status: 'ACTIVE',
+        startTime:new Date(Date.now() -3600000 * 2).toISOString(),
+        endTime: new Date(Date.now() + 3600000 * 22).toISOString(),
+        durationMins: 1440
+      },
+      {
+        code: 'WF3M7X1B',
+        phone: '0716473104'
+        planId: 'plan-1'
+        planName: '30 Mins Quick Pass',
+        price: 20,
+        status: 'EXPIRED',
+        startTime: new Date(Date.now() -7200000).toISOString(),
+        endTime: new Date(Date.now() - 5400000).toISOString(),
+        durationMins: 30
+      }
+    ];
+    let plans = JSON.parse(localStorage.getItem('wifipulse_plans')) || DEFAULT_PLANS;
+    let customers =JSON.parse(localStorage.getItem('wifipulse_customers')) || DEFAULT_CUSTOMERS;
+    let vouchers = JSON.parse(localStorage.getItem('wifipulse_vouchers')) || DEFAULT_VOUCHERS;
+    let currentTab = 'active';
+    document.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+        saveState();
+        renderAll();
+        setInterval(udateCountdowns, 1000);
+    });
+    function saveState() {
+    localStorage.setItem('wifipulse_plans', JSON.stringify(plans));
+    localStorage.setItem('wifipulse_customers', JSON.stringify(customers));
+    localStorage.setItem('wifipulse_vouchers', JSON.stringify(vouchers));    
+    }
+    function renderAll() {
+        renderMetrics();
+        renderCurrentTab();
+        renderPlans();
+        populateVoucherPlanDropdown();
+        lucide.createIcons();
+    }
+    function renderMetrics() {
+    const totalRevenue = vouchers.reduce((acc, v) => acc + (v.status !== 'TERMINATED' ? v.price : 0), 0);
+    const activeCount = vouchers.filter(v => v.status === 'ACTIVE' && new Date(v.endTime) > new Date()).length;
+    const expiredCount = vouchers.filter(v => v.status === 'Expired' || (v.status === 'ACTIVE' && new Date())).length;
+    document.getElementById('metric-revenue').textContent = `KSh ${totalRevenue.toLocaleString()}`;
+      document.getElementById('metric-active').textContent = activeCount;
+      document.getElementById('metric-customers').textContent = customers.length;
+      document.getElementById('metric-expired').textContent = expiredCount;
+
+      document.getElementById('count-active-tab').textContent = activeCount;
+      document.getElementById('count-customers-tab').textContent = customers.length;
+    }
+    function switchTab(tabKey) {
+      currentTab = tabKey;
+      ['active', 'customers', 'all-vouchers'].forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const content = document.getElementById(`tab-${t}`);
+        if (t === tabKey) {
+          btn.className = 'pb-3 text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition';
+          content.classList.remove('hidden');
+        } else {
+          btn.className = 'pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition';
+          content.classList.add('hidden');
+        }
+      });
+      renderCurrentTab();
+    }
+
+    function renderCurrentTab() {
+      const searchQuery = (document.getElementById('table-search').value || '').toLowerCase();
+      if (currentTab === 'active') renderActiveVouchers(searchQuery);
+      if (currentTab === 'customers') renderCustomers(searchQuery);
+      if (currentTab === 'all-vouchers') renderAllVouchers(searchQuery);
+    }
+
+    // RENDER ACTIVE VOUCHERS LIST
+    function renderActiveVouchers(query) {
+      const container = document.getElementById('active-vouchers-list');
+      const now = new Date();
+      
+      const activeList = vouchers.filter(v => {
+        const isStillValid = v.status === 'ACTIVE' && new Date(v.endTime) > now;
+        const matchesQuery = v.code.toLowerCase().includes(query) || v.phone.includes(query) || v.planName.toLowerCase().includes(query);
+        return isStillValid && matchesQuery;
+      });
+
+      if (activeList.length === 0) {
+        container.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500">No active internet sessions currently running.</td></tr>`;
+        return;
+      }
+
+      container.innerHTML = activeList.map(v => `
+        <tr class="hover:bg-slate-800/30 transition">
+          <td class="py-3 px-4 font-mono text-indigo-400 font-semibold">${v.code}</td>
+          <td class="py-3 px-4">${v.phone}</td>
+          <td class="py-3 px-4">${v.planName}</td>
+          <td class="py-3 px-4 font-mono text-emerald-400 font-semibold" data-countdown-code="${v.code}" data-end="${v.endTime}">
+            ${formatTimeRemaining(v.endTime)}
+          </td>
+          <td class="py-3 px-4 text-right">
+            <button onclick="terminateSession('${v.code}')" class="text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded transition">
+              Disconnect
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+    function renderCustomers(query) {
+      const container = document.getElementById('customers-list');
+      const filtered = customers.filter(c => c.phone.includes(query) || (c.name && c.name.toLowerCase().includes(query)));
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500">No customers found matching search query.</td></tr>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(c => {
+        const custVouchers = vouchers.filter(v => v.phone === c.phone);
+        const totalPurchases = custVouchers.length;
+        const totalSpend = custVouchers.reduce((acc, v) => acc + (v.status !== 'TERMINATED' ? v.price : 0), 0);
+
+        return `
+          <tr class="hover:bg-slate-800/30 transition">
+            <td class="py-3 px-4 font-semibold text-slate-200">${c.phone}</td>
+            <td class="py-3 px-4">${c.name || 'Anonymous Customer'}</td>
+            <td class="py-3 px-4">${totalPurchases} passes</td>
+            <td class="py-3 px-4 font-semibold text-emerald-400">KSh ${totalSpend.toLocaleString()}</td>
+            <td class="py-3 px-4 text-right">
+              <button onclick="quickIssueForPhone('${c.phone}')" class="text-xs bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded transition">
+                + Pass
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // RENDER ALL VOUCHERS HISTORY LOG
+    function renderAllVouchers(query) {
+      const container = document.getElementById('all-vouchers-list');
+      const filtered = vouchers.filter(v => v.code.toLowerCase().includes(query) || v.phone.includes(query) || v.planName.toLowerCase().includes(query));
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500">No voucher records logged yet.</td></tr>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(v => {
+        let badgeClass = 'bg-slate-700 text-slate-300';
+        if (v.status === 'ACTIVE') badgeClass = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        if (v.status === 'EXPIRED') badgeClass = 'bg-slate-700/60 text-slate-400';
+        if (v.status === 'TERMINATED') badgeClass = 'bg-rose-500/20 text-rose-400 border border-rose-500/30';
+        if (v.status === 'INACTIVE') badgeClass = 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
+        return `
+        <tr class="hover:bg-slate-800/30 transiton">
+          <td class="py-3 px-4 font-mono font-semibold text-indigo-400">${v.code}</td>
+          <td class="py-3 px-4">${v.phone}</td>
+          <td class="py-3 px-4">${v.planName}</td>
+          <td class="py-3 px-4 font-semibold">KSh ${v.price}</td>
+          <td class="py-3 px-4">
+            <span class="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${badgeClass}">
+              ${v.status}
+              </span>
+              </td>
+        </tr>
+      `;
+      }).join('');
+    }
+    function renderPlans() {
+      const container = document.getElementById('plans-container');
+      container.innerHTML = plans.map(p => `
+        <div class="bg-slate-900 border border-slate-700/80 rounded-xl p-4 flex flex-col justify-between relative group">
+          <button onclick="deletePlan('${p.id}')" class="absolute top-2 right-2 text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+          <div>
+            <h4 class="font-bold text-white text-sm">${p.name}</h4>
+            <div class="text-indigo-400 font-extrabold text-lg mt-1">KSh ${p.price}</div>
+            <p class="text-[11px] text-slate-400 mt-2">Validity: <span class="text-slate-200 font-medium">${formatDuration(p.durationMins)}</span></p>
+            <p class="text-[11px] text-slate-400">Speeds: <span class="text-slate-200 font-medium">${p.speedDown}M down / ${p.speedUp}M up</span></p>
+          </div>
+        </div>
+      `).join('');
+    }
+    function updateCountdowns() {
+      const elements = document.querySelectorAll('[data-countdown-code]');
+      let needsRefresh = false;
+
+      elements.forEach(el => {
+        const endTimeStr = el.getAttribute('data-end');
+        const code = el.getAttribute('data-countdown-code');
+        const remaining = formatTimeRemaining(endTimeStr);
+
+        if (remaining === 'EXPIRED') {
+          const v = vouchers.find(item => item.code === code);
+          if (v && v.status === 'ACTIVE') {
+            v.status = 'EXPIRED';
+            needsRefresh = true;
+          }
+        } else {
+          el.textContent = remaining;
+        }
+      });
+
+      if (needsRefresh) {
+        saveState();
+        renderAll();
+      }
+    }
+
+    function formatTimeRemaining(endTimeStr) {
+      const diff = new Date(endTimeStr) - new Date();
+      if (diff <= 0) return 'EXPIRED';
+
+      const totalSecs = Math.floor(diff / 1000);
+      const hours = Math.floor(totalSecs / 3600);
+      const mins = Math.floor((totalSecs % 3600) / 60);
+      const secs = totalSecs % 60;
+
+      if (hours > 0) return `${hours}h ${mins}m ${secs}s`;
+      return `${mins}m ${secs}s`;
+    }
+
+    function formatDuration(mins) {
+      if (mins < 60) return `${mins} Mins`;
+      if (mins < 1440) return `${(mins / 60).toFixed(1)} Hours`;
+      return `${(mins / 1440).toFixed(1)} Days`;
+    }
+
+    // ACTIONS: VOUCHER ISSUANCE
+    function generateVoucherCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let result = 'WF';
+      for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    }
+
+    function handleIssueVoucher(e) {
+      e.preventDefault();
+      const phone = document.getElementById('voucher-phone').value.trim();
+      const name = document.getElementById('voucher-name').value.trim();
+      const planId = document.getElementById('voucher-plan').value;
+
+      const plan = plans.find(p => p.id === planId);
+      if (!plan) return;
+
+      // Ensure Customer Saved
+      let customer = customers.find(c => c.phone === phone);
+      if (!customer) {
+        customer = { phone, name: name || 'Anonymous Customer', createdAt: new Date().toISOString() };
+        customers.push(customer);
+      } else if (name) {
+        customer.name = name;
+      }
+      const code = generateVoucherCode();
+      const newVoucher = {
+        code,
+        phone,
+        planId: plan.id,
+        planName: plan.name,
+        price: plan.price,
+        status: 'INACTIVE', // Activated upon login
+        startTime: null,
+        endTime: null,
+        durationMins: plan.durationMins
+      };
+
+      vouchers.unshift(newVoucher);
+      saveState();
+      renderAll();
+      closeVoucherModal();
+
+      // Pre-fill Portal Simulator for Testing Convenience
+      document.getElementById('sim-voucher-input').value = code;
+      alert(`Voucher Issued Successfully!\nCode: ${code}\nCustomer: ${phone}`);
+    }
+
+    function terminateSession(code) {
+      const v = vouchers.find(item => item.code === code);
+      if (v) {
+        v.status = 'TERMINATED';
+        saveState();
+        renderAll();
+      }
+    }
+
+    // ACTIONS: PLAN MANAGEMENT
+    function handleCreatePlan(e) {
+      e.preventDefault();
+      const name = document.getElementById('plan-name').value.trim();
+      const price = parseFloat(document.getElementById('plan-price').value);
+      const durationMins = parseInt(document.getElementById('plan-duration').value);
+      const speedDown = parseInt(document.getElementById('plan-down').value);
+      const speedUp = parseInt(document.getElementById('plan-up').value);
+
+      const newPlan = {
+        id: `plan-${Date.now()}`,
+        name,
+        price,
+        durationMins,
+        speedDown,
+        speedUp
+      };
+
+      plans.push(newPlan);
+      saveState();
+      renderAll();
+      closePlanModal();
+    }
+
+    function deletePlan(id) {
+      if (confirm('Delete this subscription plan option?')) {
+        plans = plans.filter(p => p.id !== id);
+        saveState();
+        renderAll();
+      }
+    }
+
+    // CAPTIVE PORTAL SIMULATOR LOGIC
+    function simulatePortalLogin() {
+      const inputCode = document.getElementById('sim-voucher-input').value.trim().toUpperCase();
+      const resBox = document.getElementById('sim-response');
+      resBox.classList.remove('hidden', 'bg-emerald-500/10', 'text-emerald-400', 'bg-rose-500/10', 'text-rose-400', 'border-emerald-500/30', 'border-rose-500/30');
+
+      const v = vouchers.find(item => item.code === inputCode);
+
+      if (!v) {
+        resBox.className = 'text-xs p-3 rounded-lg text-left bg-rose-500/10 text-rose-400 border border-rose-500/30';
+        resBox.innerHTML = `<strong>Access Denied:</strong> Invalid voucher code provided.`;
+        return;
+      }
+
+      if (v.status === 'TERMINATED') {
+        resBox.className = 'text-xs p-3 rounded-lg text-left bg-rose-500/10 text-rose-400 border border-rose-500/30';
+        resBox.innerHTML = `<strong>Access Denied:</strong> This voucher session was disconnected by vendor.`;
+        return;
+      }
+      const now = new Date();
+
+      if (v.status === 'INACTIVE') {
+        // Activate Voucher on First Login
+        v.status = 'ACTIVE';
+        v.startTime = now.toISOString();
+        v.endTime = new Date(now.getTime() + v.durationMins * 60000).toISOString();
+        saveState();
+        renderAll();
+
+        resBox.className = 'text-xs p-3 rounded-lg text-left bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+        resBox.innerHTML = `<strong>Connected!</strong> Activated plan: <b>${v.planName}</b>.`;
+        return;
+      }
+
+      if (v.status === 'ACTIVE') {
+        if (new Date(v.endTime) <= now) {
+          v.status = 'EXPIRED';
+          saveState();
+          renderAll();
+
+          resBox.className = 'text-xs p-3 rounded-lg text-left bg-rose-500/10 text-rose-400 border border-rose-500/30';
+          resBox.innerHTML = `<strong>Access Expired:</strong> Voucher duration has elapsed.`;
+        } else {
+          resBox.className = 'text-xs p-3 rounded-lg text-left bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+          resBox.innerHTML = `<strong>Session Active:</strong> Remaining time: <b>${formatTimeRemaining(v.endTime)}</b>.`;
+        }
+      }
+    }
+
+    // MODAL OPEN/CLOSE HELPERS
+    function openVoucherModal() {
+      populateVoucherPlanDropdown();
+      document.getElementById('modal-voucher').classList.remove('hidden');
+    }
+    function closeVoucherModal() {
+      document.getElementById('modal-voucher').classList.add('hidden');
+      document.getElementById('form-voucher').reset();
+    }
+    function openPlanModal() {
+      document.getElementById('modal-plan').classList.remove('hidden');
+    }
+    function closePlanModal() {
+      document.getElementById('modal-plan').classList.add('hidden');
+      document.getElementById('form-plan').reset();
+    }
+    function quickIssueForPhone(phone) {
+      document.getElementById('voucher-phone').value = phone;
+      openVoucherModal();
+    }
+
+    function populateVoucherPlanDropdown() {
+      const select = document.getElementById('voucher-plan');
+      select.innerHTML = plans.map(p => `
+        <option value="${p.id}">${p.name} - KSh ${p.price} (${formatDuration(p.durationMins)})</option>
+      `).join('');
+    }
+    function exportDataCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "Voucher Code,Customer Phone,Plan Name,Price (KSh),Status,Start Time,End Time\n";
+
+      vouchers.forEach(v => {
+        csvContent += `${v.code},${v.phone},"${v.planName}",${v.price},${v.status},${v.startTime || 'N/A'},${v.endTime || 'N/A'}\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `WiFiPulse_Vouchers_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
